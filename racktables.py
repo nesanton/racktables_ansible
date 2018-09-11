@@ -1,7 +1,7 @@
 #!/bin/env python
 
-from racktables_py_client.client import RacktablesClient
 from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.racktables_py_client.client import RacktablesClient
 
 
 ANSIBLE_METADATA = {
