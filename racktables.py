@@ -342,7 +342,8 @@ def dict_empty(d):
     empty = True
     for k, v in d.iteritems():
         if isinstance(v, dict):
-            empty = dict_empty(d[k])
+            if empty:
+                empty = dict_empty(v)
         else:
             if v:
                 empty = False
@@ -495,31 +496,32 @@ def update_object(module, params, rt_client):
 
     # Create new tags if needed
     taglist = params['taglist']
-    tags_created, tag_errors = resolve_tags(taglist, rt_client)
-    if tag_errors:
-        module.fail_json(msg='Could not create tags: {tags}. Check php_fpm logs'.format(tags=' '.join(tag_errors)),
-                         **result)
-    if tags_created:
-            result['updates']['tags']['created'] = tags_created
-            result['changed'] = True
-
-    # Check if tags are being changed
-    current_tags = [tagdata['tag'] for tagdata in obj['etags'].values()]
-
-    if module.params['preserve_tags']:
-        for tag in current_tags:
-            if tag not in taglist:
-                taglist.append(tag)
-                result['updates']['tags']['preserved'].append(tag)
-    else:
-        tags_dropped = [tag for tag in current_tags if tag not in taglist]
-        if tags_dropped:
-                result['updates']['tags']['dropped'] = tags_dropped
+    if taglist is not None:
+        tags_created, tag_errors = resolve_tags(taglist, rt_client)
+        if tag_errors:
+            module.fail_json(msg='Could not create tags: {tags}. Check php_fpm logs'.format(tags=' '.join(tag_errors)),
+                             **result)
+        if tags_created:
+                result['updates']['tags']['created'] = tags_created
                 result['changed'] = True
-    for tag in taglist:
-        if tag not in current_tags:
-            result['changed'] = True
-            result['updates']['tags']['added'].append(tag)
+
+        # Check if tags are being changed
+        current_tags = [tagdata['tag'] for tagdata in obj['etags'].values()]
+
+        if module.params['preserve_tags']:
+            for tag in current_tags:
+                if tag not in taglist:
+                    taglist.append(tag)
+                    result['updates']['tags']['preserved'].append(tag)
+        else:
+            tags_dropped = [tag for tag in current_tags if tag not in taglist]
+            if tags_dropped:
+                    result['updates']['tags']['dropped'] = tags_dropped
+                    result['changed'] = True
+        for tag in taglist:
+            if tag not in current_tags:
+                result['changed'] = True
+                result['updates']['tags']['added'].append(tag)
 
     safe_params = {'object_name': params.get('object_name', obj['name']),
                    'object_asset_no': params.get('object_asset_no', obj['asset_no']),
