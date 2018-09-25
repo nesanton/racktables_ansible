@@ -345,7 +345,7 @@ def dict_empty(d):
             if empty:
                 empty = dict_empty(v)
         else:
-            if v:
+            if (isinstance(v, list) and v) or (not isinstance(v, list) and v is not None):
                 empty = False
     return empty
 
