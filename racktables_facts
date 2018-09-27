@@ -1,5 +1,12 @@
 #!/bin/bash
 
+# args from ansible will become named vars,
+# e.g. racktables_facts: skip_ports=lo,virbr will make var $skip_ports="lo,virbr"
+source $1
+if [[ -n $skip_ports ]]; then
+    skip_ports=$(echo $skip_ports | tr ',' '|')
+fi
+
 ### Identification
 name=$(hostname)
 fqdn=$(hostname -f)
@@ -66,36 +73,35 @@ echo -en "\t\t},\n"
 ### Ports
 echo -en "\t\"ports\": {\n"
 
-nic_cnt=$(cat /proc/net/dev | tail -n +3 | wc -l)
-i=1
+first=1
 for nic in $(cat /proc/net/dev | tail -n +3 |  awk '{print $1}' | awk -F':' '{print $1}')
 do
+	[[ -n $skip_ports ]] && [[ $nic =~ $skip_ports ]] && continue
 	mac=$(ip a show dev $nic | grep -Po '(ether )\K([[:alnum:]]{2}:?){6}')
+	[[ $first -ne 1 ]] && echo -en ",\n"
 	echo -en "\t\t\"$nic\": \"$mac\""
-    [[ $i != $nic_cnt ]] && echo -en ",\n" || echo -en "\n"
 	mac=""
-    i=$(( $i + 1 ))
+    first=0
 done
+[[ $first -ne 1 ]] && echo -en "\n"
+
 echo -en "\t\t},\n"
 
 ### IPs
 echo -en "\t\"ips\": {\n"
 first=1
-for nic in $(cat /proc/net/dev | tail -n +3 |  awk '{print $1}' | awk -F':' '{print $1}' | grep -v -e lo -e virbr)
+for nic in $(cat /proc/net/dev | tail -n +3 |  awk '{print $1}' | awk -F':' '{print $1}')
 do
+	[[ -n $skip_ports ]] && [[ $nic =~ $skip_ports ]] && continue
 	ips=$(ip a show dev $nic | grep -Po '(inet )\K([[:digit:]]{1,3}\.?){4}' | xargs )
 	for ip in $ips
 	do
-	    if [[ $first -ne 1 ]]; then
-	        echo -en ",\n"
-	    fi
+	    [[ $first -ne 1 ]] && echo -en ",\n"
 	    echo -en "\t\t\"$ip\": \"$nic\""
 	    first=0
     done
 done
-if [[ $first -ne 1 ]]; then
-    echo -en "\n"
-fi
+[[ $first -ne 1 ]] && echo -en "\n"
 echo -en "\t\t}\n"
 echo -en "\t},\n"
 
