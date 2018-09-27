@@ -392,12 +392,15 @@ def add_object(module, params, rt_client):
                                attr_errors=dict(),
                                tags=dict(added=list(), dropped=list(), created=list(), preserved=list())))
 
-    tags_created, tag_errors = resolve_tags(params['taglist'], rt_client)
-    if tag_errors:
-        module.fail_json(msg='Could not create tags: {tags}. Check php_fpm logs'.format(tags=' '.join(tag_errors)),
-                         **result)
-    if tags_created:
-            result['updates']['tags']['created'] = tags_created
+    if params['taglist'] is not None:
+        tags_created, tag_errors = resolve_tags(params['taglist'], rt_client)
+        if tag_errors:
+            module.fail_json(msg='Could not create tags: {tags}. Check php_fpm logs'.format(tags=' '.join(tag_errors)),
+                             **result)
+        if tags_created:
+                result['updates']['tags']['created'] = tags_created
+    else:
+        params.pop('taglist', None)
 
     params['attrs'], errors = resolve_attrs(params['attrs'], params['object_type_id'], rt_client)
     if errors:
