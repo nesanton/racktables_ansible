@@ -76,6 +76,7 @@ ipmitool lan print > /dev/null 2>&1
 if [[ $? -eq 0 ]]; then
     ipmi_mac=$(ipmitool lan print | grep -iPo '(mac address\s*:\s*)\K([[:alnum:]]{2}:?){6}' | head -n 1)
     ipmi_ip=$(ipmitool lan print | grep -iPo '(ip address\s*:\s*)\K([[:digit:]]{1,3}\.?){4}' | head -n 1)
+    [[ $ipmi_ip == '0.0.0.0' ]] && unset ipmi_ip
 fi
 
 ### Ports
