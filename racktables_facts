@@ -1,0 +1,112 @@
+#!/bin/bash
+
+### Identification
+name=$(hostname)
+fqdn=$(hostname -f)
+vendor=$(cat /sys/devices/virtual/dmi/id/sys_vendor)
+
+case $vendor in
+	"HP")
+	# asset_no=
+	product_name=$(cat /sys/devices/virtual/dmi/id/product_name | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+	hw_type="HP%GPASS%${product_name}"
+	;;
+	"Intel Corporation")
+	# asset_no=
+	board_name=$(cat /sys/devices/virtual/dmi/id/board_name | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+	hw_type="Intel%GPASS%${board_name}"
+	;;
+	"Supermicro")
+	# asset_no=
+	board_name=$(cat /sys/devices/virtual/dmi/id/board_name | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+	hw_type="SuperMicro 1U%GPASS%${board_name}"
+	;;
+	"Red Hat")
+	# asset_no=
+	;;
+	*)
+	# example of machine specific asset_no
+	# asset_no=$(cat /sys/devices/virtual/dmi/id/chassis_serial | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+	;;
+esac
+
+### asset_no will be UUID for all machine types
+asset_no=$(cat /sys/devices/virtual/dmi/id/product_uuid | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+
+### Type
+machine_type=$(grep -q hypervisor /proc/cpuinfo && echo "vm" || echo "server")
+### Hypervisor
+[[ -d /etc/libvirt/qemu ]] && hypervisor="yes" || hypervisor="no"
+### SW Type
+sw_type=$(cat /etc/redhat-release | grep -Po "CentOS|[[:digit:]\.]+" | xargs | sed -e 's/ /%GPASS%/')
+
+### VM list
+if [[ $hypervisor == "yes" ]]; then
+    vm_list=$(find /etc/libvirt/qemu/ -maxdepth 1 -name '*.xml'| xargs -I{} basename -s ".xml" {} | xargs | sed -e 's/ /", "/g')
+    if [[ -z $vm_list ]]; then
+        vm_list="[]"
+    else
+        vm_list="[\"$vm_list\"]"
+    fi
+fi
+
+### print json
+echo -en "{\"facts\": {\n"
+echo -en "\t\"name\": \"$name\",\n"
+echo -en "\t\"asset_no\": \"$asset_no\",\n"
+echo -en "\t\"object_type\": \"$machine_type\",\n"
+echo -en "\t\"attrs\": {\n"
+echo -en "\t\t\"FQDN\": \"$fqdn\",\n"
+[[ $machine_type != "vm" ]] && echo -en "\t\t\"HW type\": \"$hw_type\",\n"
+[[ $machine_type != "vm" ]] && echo -en "\t\t\"Hypervisor\": \"$hypervisor\",\n"
+echo -en "\t\t\"SW type\": \"$sw_type\"\n"
+echo -en "\t\t},\n"
+
+### Network
+### Ports
+echo -en "\t\"ports\": {\n"
+
+nic_cnt=$(cat /proc/net/dev | tail -n +3 | wc -l)
+i=1
+for nic in $(cat /proc/net/dev | tail -n +3 |  awk '{print $1}' | awk -F':' '{print $1}')
+do
+	mac=$(ip a show dev $nic | grep -Po '(ether )\K([[:alnum:]]{2}:?){6}')
+	echo -en "\t\t\"$nic\": \"$mac\""
+    [[ $i != $nic_cnt ]] && echo -en ",\n" || echo -en "\n"
+	mac=""
+    i=$(( $i + 1 ))
+done
+echo -en "\t\t},\n"
+
+### IPs
+echo -en "\t\"ips\": {\n"
+first=1
+for nic in $(cat /proc/net/dev | tail -n +3 |  awk '{print $1}' | awk -F':' '{print $1}' | grep -v -e lo -e virbr)
+do
+	ips=$(ip a show dev $nic | grep -Po '(inet )\K([[:digit:]]{1,3}\.?){4}' | xargs )
+	for ip in $ips
+	do
+	    if [[ $first -ne 1 ]]; then
+	        echo -en ",\n"
+	    fi
+	    echo -en "\t\t\"$ip\": \"$nic\""
+	    first=0
+    done
+done
+if [[ $first -ne 1 ]]; then
+    echo -en "\n"
+fi
+echo -en "\t\t}\n"
+echo -en "\t},\n"
+
+echo -en "\"msg\": \"\",\n"
+# Won't ever change anything
+echo -en "\"changed\": false,\n"
+# Maybe it would make sense to validate json
+# e.g. without installing any extra utils:
+# echo $json | python -c "exec(\"import json\nimport sys\ntry:\n  json.load(sys.stdin)\n  sys.exit(0)\nexcept:\n  sys.exit(1) \")"
+echo -en "\"failed\": false\n"
+
+
+echo -en "}\n"
+
