@@ -70,6 +70,14 @@ echo -en "\t\t\"SW type\": \"$sw_type\"\n"
 echo -en "\t\t},\n"
 
 ### Network
+
+### IPMI
+ipmitool lan print > /dev/null 2>&1
+if [[ $? -eq 0 ]]; then
+    ipmi_mac=$(ipmitool lan print | grep -iPo '(mac address\s*:\s*)\K([[:alnum:]]{2}:?){6}' | head -n 1)
+    ipmi_ip=$(ipmitool lan print | grep -iPo '(ip address\s*:\s*)\K([[:digit:]]{1,3}\.?){4}' | head -n 1)
+fi
+
 ### Ports
 echo -en "\t\"ports\": {\n"
 
@@ -83,7 +91,9 @@ do
 	mac=""
     first=0
 done
-[[ $first -ne 1 ]] && echo -en "\n"
+# don't register ipmi port unless there's ip on it
+[[ -n $ipmi_ip ]] && echo -en ",\n\t\t\"ipmi\": \"$ipmi_mac\"\n"
+[[ $first -ne 1 ]] && [[ -z $ipmi_ip ]] && echo -en "\n"
 
 echo -en "\t\t},\n"
 
@@ -101,7 +111,8 @@ do
 	    first=0
     done
 done
-[[ $first -ne 1 ]] && echo -en "\n"
+[[ -n $ipmi_ip ]] && echo -en ",\n\t\t\"$ipmi_ip\": \"ipmi\"\n"
+[[ $first -ne 1 ]] && [[ -z $ipmi_ip ]] && echo -en "\n"
 echo -en "\t\t}\n"
 echo -en "\t},\n"
 
