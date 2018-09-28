@@ -22,7 +22,7 @@ description:
     - This module can to add and edit entries in https://www.racktables.org/
       It makes use of a php api extention to racktables
       https://github.com/nesanton/racktables/blob/master/wwwroot/api.php
-      Currently only one object type is supported - server (obj_type_id=4).
+      Currently object_type can be only server and vm (obj_type_id 4 and 1504).
 
 options:
     api:
@@ -57,8 +57,8 @@ options:
         required: False
     object_type:
         description:
-            - type of racktables object. Only C(server) is supported at the moment.
-        choices: [server, ]
+            - type of racktables object. Only C(server) and C(vm) are supported at the moment.
+        choices: [server, vm]
         default: server
         required: False
     asset_no:
