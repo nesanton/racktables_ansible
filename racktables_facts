@@ -43,12 +43,12 @@ asset_no=$(cat /sys/devices/virtual/dmi/id/product_uuid | sed -e 's/^[[:space:]]
 ### Type
 machine_type=$(grep -q hypervisor /proc/cpuinfo && echo "vm" || echo "server")
 ### Hypervisor
-[[ -d /etc/libvirt/qemu ]] && hypervisor="yes" || hypervisor="no"
+[[ -d /etc/libvirt/qemu ]] && hypervisor="Yes" || hypervisor="No"
 ### SW Type
 sw_type=$(cat /etc/redhat-release | grep -Po "CentOS|[[:digit:]\.]+" | xargs | sed -e 's/ /%GPASS%/')
 
 ### VM list
-if [[ $hypervisor == "yes" ]]; then
+if [[ $hypervisor == "Yes" ]]; then
     vm_list=$(find /etc/libvirt/qemu/ -maxdepth 1 -name '*.xml'| xargs -I{} basename -s ".xml" {} | xargs | sed -e 's/ /", "/g')
     if [[ -z $vm_list ]]; then
         vm_list="[]"
