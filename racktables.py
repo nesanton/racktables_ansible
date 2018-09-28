@@ -198,7 +198,9 @@ def resolve_tags(taglist, rt_client):
     errors = []
     raw_tags = rt_client.get_tags()
     # make a more useful dict: {"tag1": 100, "tag2": 201}
-    all_tags = {v['tag']: int(k) for k, v in raw_tags.iteritems()}
+    all_tags = {}
+    for k, v in raw_tags.iteritems():
+        all_tags[v['tag']] = int(k)
     for tag in taglist:
         if tag not in all_tags:
             # add new tag
@@ -274,9 +276,13 @@ def process_ports(object_ports, playbook_ports):
 
     # make a nicer dict of object_ports
     # the 'k' below is rubbish - it's an id of port to object relationship
-    oports = {v['name']: v for k, v in object_ports.iteritems()}
+    oports = {}
+    for k, v in object_ports.iteritems():
+        oports[v['name']] = v
     # dict for comparison - ensures that lowercase and uppercase port names can match
-    pports = {k.lower(): v.lower() for k, v in playbook_ports.iteritems()}
+    pports = {}
+    for k, v in playbook_ports.iteritems():
+        pports[k.lower()] = v.lower()
     port_updates = {}
     for port in oports:
         if port.lower() in pports:
@@ -318,7 +324,9 @@ def process_ips(object_ips, playbook_ips):
     if not playbook_ips:
         return {}
     ip_updates = {}
-    oips = {v['addrinfo']['ip']: v['osif'] for v in object_ips.values()}
+    oips = {}
+    for v in object_ips.values():
+        oips[v['addrinfo']['ip']] = v['osif']
     for ip in oips:
         if ip in playbook_ips:
             # this ip is provided in the playbook
@@ -541,7 +549,9 @@ def update_object(module, params, rt_client):
     ports_to_add = [p for p in port_updates if port_updates[p] == 'add']
     ports_to_delete = [p for p in port_updates if port_updates[p] == 'delete']
     ports_to_update = [p for p in port_updates if port_updates[p] == 'update']
-    oports = {v['name']: v for k, v in obj['ports'].iteritems()}
+    oports = {}
+    for k, v in obj['ports'].iteritems():
+        oports[v['name']] = v
     for port in ports_to_add:
         # returns object id
         if rt_client.add_object_port(obj_id, port, module.params['ports'][port]):
@@ -581,10 +591,21 @@ def update_object(module, params, rt_client):
                                  **result)
 
     ip_updates = process_ips(obj['ipv4'], module.params['ips'])
-    ips_to_add = {k: v for k, v in ip_updates.iteritems() if v == 'add'}
-    ips_to_update = {k: v for k, v in ip_updates.iteritems() if v == 'update'}
-    ips_to_delete = {k: v for k, v in ip_updates.iteritems() if v == 'delete'}
-    oips = {v['addrinfo']['ip']: v['osif'] for v in obj['ipv4'].values()}
+    ips_to_add = {}
+    for k, v in ip_updates.iteritems():
+        if v == 'add':
+            ips_to_add[k] = v
+    ips_to_update = {}
+    for k, v in ip_updates.iteritems():
+        if v == 'update':
+            ips_to_update[k] = v
+    ips_to_delete = {}
+    for k, v in ip_updates.iteritems():
+        if v == 'delete':
+            ips_to_delete[k] = v
+    oips = {}
+    for v in obj['ipv4'].values():
+        oips[v['addrinfo']['ip']] = v['osif']
 
     for ip in ips_to_add:
         if rt_client.add_object_ipv4_address(obj['id'], ip, module.params['ips'][ip]):
@@ -633,8 +654,9 @@ def run_module():
                       'asset_no',
                       'label',
                       'comment']
-    obj_type_choices = ['server']
-    obj_type_id = {'server': 4}
+    obj_type_choices = ['server', 'vm']
+    obj_type_id = {'server': 4,
+                   'vm': 1504}
 
     module_args = dict(
         api=dict(type='str', required=False, default='https://racktables/api.php'),
@@ -706,7 +728,9 @@ def run_module():
         result.update(update_object(module, object_definition, rt_client))
     elif module.params['action'] == 'add':
         result.update(add_object(module, object_definition, rt_client))
-
+    # censor password now, so it gets censored in result['invocation']['module_args'] on exit_json
+    if 'password' in module.params:
+        module.params['password'] = 'CENSORED'
     module.exit_json(**result)
 
 
