@@ -72,11 +72,16 @@ echo -en "\t\t},\n"
 ### Network
 
 ### IPMI
+# there may be many channels - let's assume they are not more than 10
 ipmitool lan print > /dev/null 2>&1
+ipmi_macs=()
+ipmi_ips=()
 if [[ $? -eq 0 ]]; then
-    ipmi_mac=$(ipmitool lan print | grep -iPo '(mac address\s*:\s*)\K([[:alnum:]]{2}:?){6}' | head -n 1)
-    ipmi_ip=$(ipmitool lan print | grep -iPo '(ip address\s*:\s*)\K([[:digit:]]{1,3}\.?){4}' | head -n 1)
-    [[ $ipmi_ip == '0.0.0.0' ]] && unset ipmi_ip
+    for i in {1..10}
+        do
+        ipmi_macs[$i]=$(ipmitool lan print $i 2>/dev/null | grep -iPo '(mac address\s*:\s*)\K([[:alnum:]]{2}:?){6}' | head -n 1)
+        ipmi_ips[$i]=$(ipmitool lan print $i 2>/dev/null | grep -iPo '(ip address\s*:\s*)\K([[:digit:]]{1,3}\.?){4}' | head -n 1)
+    done
 fi
 
 ### Ports
@@ -92,9 +97,16 @@ do
 	mac=""
     first=0
 done
-# don't register ipmi port unless there's ip on it
-[[ -n $ipmi_ip ]] && echo -en ",\n\t\t\"ipmi\": \"$ipmi_mac\"\n"
-[[ $first -ne 1 ]] && [[ -z $ipmi_ip ]] && echo -en "\n"
+# print ipmiX ports. X represents channel number
+for i in {1..10}
+do
+    if [[ -n ${ipmi_ips[$i]} ]] && [[ ${ipmi_ips[$i]} != '0.0.0.0' ]]; then
+        [[ $first -ne 1 ]] && echo -en ",\n"
+        echo -en "\t\t\"ipmi$i\": \"${ipmi_macs[$i]}\""
+        first=0
+    fi
+done
+[[ $first -ne 1 ]] && echo -en "\n"
 
 echo -en "\t\t},\n"
 
@@ -112,8 +124,17 @@ do
 	    first=0
     done
 done
-[[ -n $ipmi_ip ]] && echo -en ",\n\t\t\"$ipmi_ip\": \"ipmi\"\n"
-[[ $first -ne 1 ]] && [[ -z $ipmi_ip ]] && echo -en "\n"
+# print ipmiX ports. X represents channel number
+for i in {1..10}
+do
+    if [[ -n ${ipmi_ips[$i]} ]] && [[ ${ipmi_ips[$i]} != '0.0.0.0' ]]; then
+        [[ $first -ne 1 ]] && echo -en ",\n"
+        echo -en "\t\t\"${ipmi_ips[$i]}\": \"ipmi$i\""
+        first=0
+    fi
+done
+[[ $first -ne 1 ]] && echo -en "\n"
+
 echo -en "\t\t}\n"
 echo -en "\t},\n"
 
