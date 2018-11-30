@@ -534,9 +534,9 @@ def update_object(module, params, rt_client):
                 result['changed'] = True
                 result['updates']['tags']['added'].append(tag)
 
-    safe_params = {'object_name': params.get('object_name', obj['name']),
-                   'object_asset_no': params.get('object_asset_no', obj['asset_no']),
-                   'object_label': params.get('object_label', obj['label']),
+    safe_params = {'object_name': params['object_name'] if params['object_name'] else obj['name'],
+                   'object_asset_no': params['object_asset_no'] if params['object_asset_no'] else obj['asset_no'],
+                   'object_label': params['object_label'] if params['object_label'] else obj['label'],
                    'object_comment': params.get('object_comment', ''),
                    'append_comment': module.params['preserve_comment'],
                    'attrs': resolved_attrs}
